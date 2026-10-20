@@ -2,6 +2,9 @@ import express from "express";
 import * as dotenv from "dotenv";
 import cors from "cors";
 import morgan from "morgan";
+import path from "path";
+import fs from "fs";
+import { fileURLToPath } from "url";
 
 import dbConnection from "./database.js";
 import { validateJWT } from "./middlewares/validateJWT.js";
@@ -10,6 +13,9 @@ import { routerCurso } from "./routes/cursos.routes.js";
 import { routerAprendiz } from "./routes/aprendices.routes.js";
 
 dotenv.config();
+
+// En modulos ES no existe __dirname; se reconstruye a partir de import.meta.url.
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /**
  * Representa el servidor de la aplicacion.
@@ -22,6 +28,9 @@ class Server {
   constructor() {
     this.app = express();
     this.port = process.env.PORT || 4500;
+    // Carpeta con el frontend ya compilado. El build del frontend se copia aqui
+    // (ver "npm run deploy:backend" en el frontend) y este mismo servidor lo sirve.
+    this.publicPath = path.join(__dirname, "public");
     this.middlewares();
     this.routes();
     this.conexionBd();
@@ -35,6 +44,12 @@ class Server {
     this.app.use(express.urlencoded({ extended: true }));
     this.app.use(cors()); // permite que el frontend (otro puerto) consuma la API
     this.app.use(morgan("dev")); // muestra en consola cada peticion que llega
+
+    // Sirve el frontend ya compilado (index.html, /assets, favicon...). Si aun
+    // no has copiado el build, la carpeta "public" no existe y esto simplemente
+    // no sirve nada; util en desarrollo, cuando el frontend corre aparte con
+    // "npm run dev" en el puerto 5173.
+    this.app.use(express.static(this.publicPath));
   }
 
   /**
@@ -59,10 +74,22 @@ class Server {
       res.send("El servidor esta funcionando");
     });
 
-    // Cualquier otra ruta (incluida la raiz "/") responde 404 en JSON.
-    // El backend es solo API: la pantalla de login vive en el frontend
-    // (http://localhost:5173), no se sirve desde aqui.
-    this.app.use((req, res) => {
+    // Una ruta de API (/api/...) que no coincide con las de arriba cae aqui y
+    // responde 404 en JSON. Este msg lo muestra el frontend tal cual en un
+    // Notify, por eso va en español igual que los demas mensajes del backend.
+    this.app.use("/api/*", (req, res) => {
+      res.status(404).json({ msg: "La ruta solicitada no existe" });
+    });
+
+    // Cualquier OTRA ruta devuelve el index.html del frontend, para que se abra
+    // la aplicacion de Vue (asi tambien funciona entrar por una URL directa,
+    // ademas del modo hash que usa el router). Si todavia no se ha copiado el
+    // build, la carpeta public no existe y responde como antes (util en dev).
+    this.app.get("*", (req, res) => {
+      const indexHtml = path.join(this.publicPath, "index.html");
+      if (fs.existsSync(indexHtml)) {
+        return res.sendFile(indexHtml);
+      }
       res.status(404).json({ msg: "La ruta solicitada no existe" });
     });
   }
