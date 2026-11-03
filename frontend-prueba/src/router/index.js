@@ -30,7 +30,7 @@ const routes = [
         path: "usuarios",
         name: "usuarios",
         component: () => import("../views/UsuariosView.vue"),
-        meta: { title: "Usuarios" },
+        meta: { title: "Usuarios", searchable: true, searchPlaceholder: "Buscar usuario…" },
       },
     ],
   },

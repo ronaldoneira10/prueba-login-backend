@@ -4,7 +4,7 @@ import { useRouter } from "vue-router";
 import { useAprendicesStore } from "../stores/aprendices";
 import { useCursosStore } from "../stores/cursos";
 import { useUiStore } from "../stores/ui";
-import { notifyError, notifyOk, mostrarError } from "../utils/errors";
+import { notifyError, notifyOk, mostrarError, getErrors } from "../utils/errors";
 import { confirmar, toastAviso } from "../utils/alerts";
 import { requerido, correo } from "../utils/rules";
 import PageHero from "../components/PageHero.vue";
@@ -62,6 +62,7 @@ const dialog = ref(false);
 const editId = ref(null);
 const form = ref(vacio());
 const guardando = ref(false);
+const emailEnUso = ref(false); // el backend dijo que ese correo ya existe
 
 // Solo cursos activos; si se edita un aprendiz de un curso inactivo, se conserva ese.
 const opcionesCurso = computed(() =>
@@ -72,12 +73,14 @@ const opcionesCurso = computed(() =>
 
 function nuevo() {
   editId.value = null;
+  emailEnUso.value = false;
   form.value = vacio();
   dialog.value = true;
 }
 
 function editar(a) {
   editId.value = a._id;
+  emailEnUso.value = false;
   form.value = {
     documento: a.documento,
     nombre: a.nombre,
@@ -89,12 +92,23 @@ function editar(a) {
 
 async function guardar() {
   guardando.value = true;
+  emailEnUso.value = false;
   try {
     const msg = await store.guardar(form.value, editId.value);
     dialog.value = false;
     notifyOk(msg);
   } catch (e) {
-    mostrarError(e, editId.value ? "No se pudo actualizar el aprendiz" : "No se pudo crear el aprendiz");
+    // Correo repetido: alerta especifica y el campo se marca en rojo.
+    const enUso = getErrors(e).some((m) => /en uso/i.test(m));
+    emailEnUso.value = enUso;
+    mostrarError(
+      e,
+      enUso
+        ? "Correo ya en uso"
+        : editId.value
+          ? "No se pudo actualizar el aprendiz"
+          : "No se pudo crear el aprendiz"
+    );
   } finally {
     guardando.value = false;
   }
@@ -279,10 +293,13 @@ onMounted(() => {
             />
             <q-input
               v-model="form.email"
-              type="email"
+              inputmode="email"
               label="Email"
               outlined
+              :error="emailEnUso"
+              :error-message="emailEnUso ? 'El correo del aprendiz ya está en uso' : undefined"
               :rules="[requerido('El email es obligatorio'), correo('El email no es válido')]"
+              @update:model-value="emailEnUso = false"
             />
             <q-select
               v-model="form.curso"

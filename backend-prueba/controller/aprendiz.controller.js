@@ -2,6 +2,13 @@ import Aprendiz from "../models/Aprendiz.js";
 
 const aprendizCtrl = {};
 
+// El codigo 11000 de MongoDB = valor duplicado en un campo unico (aqui, el email).
+// La validacion previa casi siempre lo atrapa; esto cubre dos peticiones simultaneas.
+const errorAprendiz = (error) =>
+  error?.code === 11000
+    ? { msg: "Error en la validacion", errors: ["El correo del aprendiz ya está en uso"] }
+    : { msg: "No fue posible terminar la operacion" };
+
 // Registrar un nuevo aprendiz
 aprendizCtrl.registerAprendiz = async (req, res) => {
   const { documento, nombre, email, curso } = req.body;
@@ -15,7 +22,7 @@ aprendizCtrl.registerAprendiz = async (req, res) => {
     await newAprendiz.save();
     res.json({ msg: "Aprendiz registrado correctamente" });
   } catch (error) {
-    res.status(400).json({ msg: "No fue posible terminar la operacion" });
+    res.status(400).json(errorAprendiz(error));
   }
 };
 
@@ -67,7 +74,7 @@ aprendizCtrl.updateAprendiz = async (req, res) => {
     });
     res.json({ msg: "Aprendiz actualizado correctamente" });
   } catch (error) {
-    res.status(400).json({ msg: "No fue posible terminar la operacion" });
+    res.status(400).json(errorAprendiz(error));
   }
 };
 

@@ -6,6 +6,17 @@ import { generarJWT } from "../helpers/generarJWT.js";
 const usuarioCtrl = {};
 
 /**
+ * Arma la respuesta de error. El codigo 11000 de MongoDB significa "valor
+ * duplicado en un campo unico": aqui solo puede ser el email. La validacion
+ * previa ya lo atrapa casi siempre; esto cubre el caso de dos peticiones
+ * simultaneas con el mismo correo.
+ */
+const errorUsuario = (error) =>
+  error?.code === 11000
+    ? { msg: "Error en la validacion", errors: ["El correo del usuario ya está en uso"] }
+    : { msg: "No fue posible terminar la operacion" };
+
+/**
  * Registrar un nuevo usuario.
  *
  * La contraseña NUNCA se guarda tal cual. Se le aplica un hash con bcrypt:
@@ -34,6 +45,74 @@ usuarioCtrl.registerUsuario = async (req, res) => {
 
     await newUsuario.save();
     res.json({ msg: "Usuario registrado correctamente" });
+  } catch (error) {
+    res.status(400).json(errorUsuario(error));
+  }
+};
+
+/**
+ * Listar usuarios (los mas recientes primero).
+ * El password nunca sale: el toJSON del modelo lo quita.
+ */
+usuarioCtrl.getUsuarios = async (req, res) => {
+  const { status } = req.query;
+  try {
+    const usuarios = await Usuario.find(status ? { status } : {}).sort({ createdAt: -1 });
+    res.json(usuarios);
+  } catch (error) {
+    res.status(400).json({ msg: "No fue posible terminar la operacion" });
+  }
+};
+
+/**
+ * Actualizar un usuario (nombre, correo y, opcionalmente, contraseña).
+ * Si no llega password, se conserva la que ya tenia.
+ */
+usuarioCtrl.updateUsuario = async (req, res) => {
+  const { id } = req.params;
+  const { nombre, email, password } = req.body;
+  try {
+    const cambios = {
+      nombre: nombre.toUpperCase().trim(),
+      email: email.toLowerCase().trim(),
+    };
+
+    if (password) {
+      const salt = bcrypt.genSaltSync(10);
+      cambios.password = bcrypt.hashSync(password, salt);
+    }
+
+    await Usuario.findByIdAndUpdate(id, cambios);
+    res.json({ msg: "Usuario actualizado correctamente" });
+  } catch (error) {
+    res.status(400).json(errorUsuario(error));
+  }
+};
+
+/** Activar usuario (status 0). */
+usuarioCtrl.activeUsuario = async (req, res) => {
+  const { id } = req.params;
+  try {
+    await Usuario.findByIdAndUpdate(id, { status: 0 });
+    res.json({ msg: "Usuario activado correctamente" });
+  } catch (error) {
+    res.status(400).json({ msg: "No fue posible terminar la operacion" });
+  }
+};
+
+/**
+ * Desactivar usuario (status 1).
+ * Un usuario no puede desactivarse a si mismo: validateJWT rechaza a los
+ * inactivos, asi que se quedaria fuera del sistema en la siguiente peticion.
+ */
+usuarioCtrl.inactiveUsuario = async (req, res) => {
+  const { id } = req.params;
+  try {
+    if (req.usuario._id.toString() === id) {
+      return res.status(400).json({ msg: "No puedes desactivar tu propia cuenta" });
+    }
+    await Usuario.findByIdAndUpdate(id, { status: 1 });
+    res.json({ msg: "Usuario desactivado correctamente" });
   } catch (error) {
     res.status(400).json({ msg: "No fue posible terminar la operacion" });
   }

@@ -23,6 +23,9 @@ const AprendizSchema = new Schema(
     email: {
       type: String,
       required: true,
+      unique: true, // segunda barrera: Mongo tampoco deja repetir el correo
+      lowercase: true,
+      trim: true,
     },
     curso: {
       type: Schema.Types.ObjectId,

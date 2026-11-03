@@ -8,16 +8,16 @@ import Usuario from "../models/Usuario.js";
 const usuarioHelper = {};
 
 /**
- * Valida que el email no este ya registrado.
+ * Valida que el correo no este ya en uso por otro usuario.
  * @param {string} email
  * @param {string} [id=null] - Id a excluir (se usa al actualizar).
- * @throws {Error} Si el email ya esta registrado.
+ * @throws {Error} Si el correo ya esta en uso.
  */
 usuarioHelper.validateExistEmail = async (email, id = null) => {
   const usuario = await Usuario.findOne({ email: email.toLowerCase().trim() });
   if (usuario) {
     if (!id || usuario._id.toString() !== id.toString()) {
-      throw new Error("El email ya esta registrado");
+      throw new Error("El correo del usuario ya está en uso");
     }
   }
 };

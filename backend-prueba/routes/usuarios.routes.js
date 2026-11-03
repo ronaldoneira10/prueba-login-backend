@@ -3,8 +3,20 @@ import { usuarioCtrl } from "../controller/usuario.controller.js";
 import { usuarioVali } from "../validations/usuario.validation.js";
 import { validateJWT } from "../middlewares/validateJWT.js";
 
-const { validateRegisterUsuario, validateLogin } = usuarioVali;
-const { registerUsuario, loginUsuario } = usuarioCtrl;
+const {
+  validateRegisterUsuario,
+  validateUpdateUsuario,
+  validateExistUsuario,
+  validateLogin,
+} = usuarioVali;
+const {
+  registerUsuario,
+  loginUsuario,
+  getUsuarios,
+  updateUsuario,
+  activeUsuario,
+  inactiveUsuario,
+} = usuarioCtrl;
 
 const routerUsuario = Router();
 
@@ -29,5 +41,19 @@ routerUsuario.post(
   validateRegisterUsuario,
   registerUsuario
 );
+
+// El resto de rutas son de gestion: todas piden token.
+//
+// GET /api/usuarios               -> listar usuarios
+routerUsuario.get("/", validateJWT, getUsuarios);
+
+// PUT /api/usuarios/update/:id    -> actualizar (password opcional)
+routerUsuario.put("/update/:id", validateJWT, validateUpdateUsuario, updateUsuario);
+
+// PUT /api/usuarios/active/:id    -> activar
+routerUsuario.put("/active/:id", validateJWT, validateExistUsuario, activeUsuario);
+
+// PUT /api/usuarios/inactive/:id  -> desactivar (no a uno mismo)
+routerUsuario.put("/inactive/:id", validateJWT, validateExistUsuario, inactiveUsuario);
 
 export { routerUsuario };

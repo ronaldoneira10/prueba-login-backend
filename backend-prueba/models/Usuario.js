@@ -19,6 +19,9 @@ const UsuarioSchema = new Schema(
     email: {
       type: String,
       required: true,
+      unique: true, // segunda barrera: aunque dos peticiones lleguen a la vez, Mongo no deja repetir
+      lowercase: true,
+      trim: true,
     },
     password: {
       type: String,

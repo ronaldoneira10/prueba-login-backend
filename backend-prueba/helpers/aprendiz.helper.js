@@ -46,4 +46,19 @@ aprendizHelper.validateExistDocumento = async (documento, id = null) => {
   }
 };
 
+/**
+ * Valida que el correo no este ya en uso por otro aprendiz.
+ * @param {string} email
+ * @param {string} [id=null] - Id a excluir (se usa al actualizar).
+ * @throws {Error} Si el correo ya esta en uso.
+ */
+aprendizHelper.validateExistEmail = async (email, id = null) => {
+  const aprendiz = await Aprendiz.findOne({ email: email.toLowerCase().trim() });
+  if (aprendiz) {
+    if (!id || aprendiz._id.toString() !== id.toString()) {
+      throw new Error("El correo del aprendiz ya está en uso");
+    }
+  }
+};
+
 export { aprendizHelper };
